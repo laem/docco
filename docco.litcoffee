@@ -80,31 +80,46 @@ out in an HTML template.
     document = (options = {}, callback) ->
       config = configure options
 
-      fs.mkdirs config.output, ->
+      if config.return is 'html'
 
-        callback or= (error) -> throw error if error
-        copyAsset  = (file, callback) ->
-          fs.copy file, path.join(config.output, path.basename(file)), callback
-        complete   = ->
-          copyAsset config.css, (error) ->
-            if error then callback error
-            else if fs.existsSync config.public then copyAsset config.public, callback
-            else callback()
+        source = config.sources[0]
+        buffer = fs.readFileSync source
 
-        files = config.sources.slice()
+        code = buffer.toString()
+        sections = parse source, code, config
+        format source, sections, config
+        return write source, sections, config
+        console.log 'YEAH'
 
-        nextFile = ->
-          source = files.shift()
-          fs.readFile source, (error, buffer) ->
-            return callback error if error
 
-            code = buffer.toString()
-            sections = parse source, code, config
-            format source, sections, config
-            write source, sections, config
-            if files.length then nextFile() else complete()
+Return the html of the first input file, no doc files will be written.
 
-        nextFile()
+      else
+        fs.mkdirs config.output, ->
+
+          callback or= (error) -> throw error if error
+          copyAsset  = (file, callback) ->
+            fs.copy file, path.join(config.output, path.basename(file)), callback
+          complete   = ->
+            copyAsset config.css, (error) ->
+              if error then callback error
+              else if fs.existsSync config.public then copyAsset config.public, callback
+              else callback()
+
+          files = config.sources.slice()
+
+          nextFile = ->
+            source = files.shift()
+            fs.readFile source, (error, buffer) ->
+              return callback error if error
+
+              code = buffer.toString()
+              sections = parse source, code, config
+              format source, sections, config
+              write source, sections, config
+              if files.length then nextFile() else complete()
+
+          nextFile()
 
 Given a string of source code, **parse** out each block of prose and the code that
 follows it — by detecting which is which, line by line — and then create an
@@ -208,8 +223,11 @@ name of the source file.
       html = config.template {sources: config.sources, css: path.basename(config.css),
         title, hasTitle, sections, path, destination,}
 
-      console.log "docco: #{source} -> #{destination source}"
-      fs.writeFileSync destination(source), html
+      if config.return is 'html'
+        return html
+      else
+        console.log "docco: #{source} -> #{destination source}"
+        fs.writeFileSync destination(source), html
 
 
 Configuration
@@ -226,6 +244,7 @@ user-specified options.
       extension:  null
       languages:  {}
       marked:     null
+      return: null
 
 **Configure** this particular run of Docco. We might use a passed-in external
 template, or one of the built-in **layouts**. We only attempt to process
@@ -321,23 +340,28 @@ Command Line Interface
 Finally, let's define the interface to run Docco from the command line.
 Parse options using [Commander](https://github.com/visionmedia/commander.js).
 
-    run = (args = process.argv) ->
-      c = defaults
-      commander.version(version)
-        .usage('[options] files')
-        .option('-L, --languages [file]', 'use a custom languages.json', _.compose JSON.parse, fs.readFileSync)
-        .option('-l, --layout [name]',    'choose a layout (parallel, linear or classic)', c.layout)
-        .option('-o, --output [path]',    'output to a given folder', c.output)
-        .option('-c, --css [file]',       'use a custom css file', c.css)
-        .option('-t, --template [file]',  'use a custom .jst template', c.template)
-        .option('-e, --extension [ext]',  'assume a file extension for all inputs', c.extension)
-        .option('-m, --marked [file]',    'use custom marked options', c.marked)
-        .parse(args)
-        .name = "docco"
-      if commander.args.length
-        document commander
+    run = (args) ->
+      if args
+        document args
       else
-        console.log commander.helpInformation()
+        args = process.argv
+        c = defaults
+        commander.version(version)
+          .usage('[options] files')
+          .option('-L, --languages [file]', 'use a custom languages.json', _.compose JSON.parse, fs.readFileSync)
+          .option('-l, --layout [name]',    'choose a layout (parallel, linear or classic)', c.layout)
+          .option('-o, --output [path]',    'output to a given folder', c.output)
+          .option('-o, --output [path]',    'output to a given folder', c.output)
+          .option('-c, --css [file]',       'use a custom css file', c.css)
+          .option('-t, --template [file]',  'use a custom .jst template', c.template)
+          .option('-e, --extension [ext]',  'assume a file extension for all inputs', c.extension)
+          .option('-m, --marked [file]',    'use custom marked options', c.marked)
+          .parse(args)
+          .name = "docco"
+        if commander.args.length
+          document commander
+        else
+          console.log commander.helpInformation()
 
 
 Public API

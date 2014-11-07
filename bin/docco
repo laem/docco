@@ -3,4 +3,8 @@
 var path = require('path');
 var fs = require('fs');
 var dir = path.join(path.dirname(fs.realpathSync(__filename)), '../');
-require(dir + 'docco.js').run();
+var output = require(dir + 'docco.js').run({
+  args: [ 'little.litcoffee' ],
+  return: 'html'
+});
+console.log('OUTPUT ', output)
