@@ -1,0 +1,15 @@
+  <div class="container">
+    <div class="page">
+
+      
+
+      <% for (var i = 0, l = sections.length; i<l; i++) { %>
+        <% var section = sections[i]; %>
+        <%= section.docsHtml %>
+        <% if (!(/^\s*$/).test(section.codeText)) { %>
+          <%= section.codeHtml %>
+        <% } %>
+      <% } %>
+      <div class="fleur">h</div>
+    </div>
+  </div>
